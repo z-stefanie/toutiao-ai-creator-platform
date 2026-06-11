@@ -113,8 +113,8 @@ npm run submission:archive
 {
   "ok": true,
   "archive": "dist/toutiao-ai-creator-platform-submission-2026-06-11.zip",
-  "fileCount": 107,
-  "size": 863095
+  "fileCount": 108,
+  "size": 865161
 }
 ```
 
@@ -159,5 +159,5 @@ GitHub connector repository list: empty
 ## 当前剩余缺口
 
 - 提供 GitHub 远端仓库 URL 后执行 `git remote add origin <url>` 与 `git push -u origin main`。
-- 或用户确认使用其他方式交付代码压缩包。
+- 代码压缩包已上传飞书，若采用附件交付需确认链接分享权限。
 - 飞书提交模板副本仍需填写作者信息，并回填最终 GitHub 或代码包附件。

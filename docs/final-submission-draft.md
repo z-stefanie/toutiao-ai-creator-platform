@@ -191,6 +191,11 @@ threshold=2500ms
 
 ## 代码压缩包
 
+```text
+飞书链接：（内部链接已移除）
+本地文件：dist/toutiao-ai-creator-platform-submission-2026-06-11.zip
+```
+
 当前仓库包含：
 
 - `README.md`：启动、验证、在线体验说明。
