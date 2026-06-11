@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  phone     String?
+  nickname  String
+  role      String
+  createdAt DateTime @default(now())
+
+  sessions Session[]
+  prompts  Prompt[]
+  assets   Asset[]
+  drafts   Draft[]
+  contents Content[]
+}
+
+model Session {
+  token     String   @id
+  userId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Prompt {
+  id          String   @id
+  ownerId     String
+  name        String
+  description String
+  template    String
+  category    String
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model Asset {
+  id               String   @id
+  ownerId          String
+  type             String
+  url              String
+  filename         String
+  mimeType         String
+  size             Int
+  complianceStatus String
+  complianceReason String?
+  createdAt        DateTime @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model Draft {
+  id           String   @id
+  ownerId      String
+  contentId    String?
+  title        String
+  summary      String
+  body         String
+  assetIdsJson String
+  tagsJson     String
+  version      Int
+  syncStatus   String
+  lastSavedAt  DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model Content {
+  id             String   @id
+  authorId       String
+  title          String
+  summary        String
+  body           String
+  coverUrl       String?
+  assetIdsJson   String
+  tagsJson       String
+  status         String
+  auditResultId  String?
+  qualityScoreId String?
+  publishedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  rankingMetric RankingMetric?
+}
+
+model AuditResult {
+  id            String   @id
+  contentId     String?
+  draftId       String?
+  passed        Boolean
+  riskLevel     String
+  categoriesJson String
+  hitSpansJson  String
+  action        String
+  suggestion    String
+  modelName     String
+  createdAt     DateTime @default(now())
+}
+
+model QualityScore {
+  id             String   @id
+  contentId      String?
+  draftId        String?
+  total          Int
+  dimensionsJson String
+  reasonsJson    String
+  modelName      String
+  createdAt      DateTime @default(now())
+}
+
+model RankingMetric {
+  contentId      String   @id
+  qualityScore   Int
+  viewCount      Int
+  likeCount      Int
+  commentCount   Int
+  shareCount     Int
+  heatScore      Int
+  freshnessScore Int
+  rankingScore   Float
+  calculatedAt   DateTime @default(now())
+
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+}
+
+model AiCallLog {
+  id              String   @id
+  callType        String
+  provider        String
+  model           String
+  durationMs      Int
+  inputSummary    String
+  outputSummary   String
+  schemaValid     Boolean
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+}

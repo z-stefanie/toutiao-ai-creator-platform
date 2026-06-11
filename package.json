@@ -1,0 +1,41 @@
+{
+  "name": "toutiao-ai-creator-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI creator assistance and content distribution platform for the Toutiao frontend training camp.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "e2e": "playwright test",
+    "db:generate": "prisma generate",
+    "db:push": "prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script --output prisma/generated-schema.sql && node prisma/apply-schema.mjs",
+    "db:seed": "node prisma/seed.mjs",
+    "evals": "node evals/scripts/run-evals.mjs",
+    "ai:smoke": "node evals/scripts/run-provider-smoke.mjs",
+    "demo:record": "node scripts/record-demo-video.mjs",
+    "submission:archive": "node scripts/create-submission-archive.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "better-sqlite3": "^12.10.0",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "typescript": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "prisma": "^7.8.0"
+  }
+}

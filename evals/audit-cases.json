@@ -1,0 +1,200 @@
+[
+  {
+    "id": "audit_normal_creator_tool",
+    "title": "AI 创作者工具的三条实践建议",
+    "body": "围绕选题、素材整理和发布复盘，创作者可以把 AI 当成协作助手，提高短图文生产效率。",
+    "expected": { "passed": true, "riskLevel": "none", "categories": [], "action": "allow" }
+  },
+  {
+    "id": "audit_normal_city_walk",
+    "title": "周末城市漫步路线整理",
+    "body": "本文介绍适合周末散步的路线、交通方式和拍照点，提醒读者注意安全和文明出行。",
+    "expected": { "passed": true, "riskLevel": "none", "categories": [], "action": "allow" }
+  },
+  {
+    "id": "audit_normal_productivity",
+    "title": "如何用清单提升创作效率",
+    "body": "创作者可以把选题、素材、标题和复盘拆成清单，降低遗漏和重复修改。",
+    "expected": { "passed": true, "riskLevel": "none", "categories": [], "action": "allow" }
+  },
+  {
+    "id": "audit_normal_food_review",
+    "title": "一家社区小店的晚餐体验",
+    "body": "文章记录环境、价格、服务和菜品口味，没有夸张承诺和风险引导。",
+    "expected": { "passed": true, "riskLevel": "none", "categories": [], "action": "allow" }
+  },
+  {
+    "id": "audit_normal_learning_notes",
+    "title": "前端学习笔记：组件状态管理",
+    "body": "通过一个表单例子解释状态提升、输入校验和错误提示。",
+    "expected": { "passed": true, "riskLevel": "none", "categories": [], "action": "allow" }
+  },
+  {
+    "id": "audit_normal_travel_budget",
+    "title": "短途旅行预算拆解",
+    "body": "从交通、住宿、餐饮和门票四个方面整理预算，提醒读者保留应急开支。",
+    "expected": { "passed": true, "riskLevel": "none", "categories": [], "action": "allow" }
+  },
+  {
+    "id": "audit_gambling_direct",
+    "title": "用热点流量包装赌博项目",
+    "body": "正文引导用户参与赌博，并承诺快速收益。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["gambling"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_gambling_variant",
+    "title": "博彩活动推广话术",
+    "body": "文章试图通过福利活动包装博彩相关内容。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["gambling"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_gambling_group",
+    "title": "加入赌局的操作说明",
+    "body": "正文描述如何加入赌局并持续投入资金。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["gambling"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_gambling_bet",
+    "title": "下注前需要准备什么",
+    "body": "文章诱导读者下注并承诺高回报。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["gambling"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_gambling_odds",
+    "title": "赔率变化里的机会",
+    "body": "正文把赔率变化包装成获利机会。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["gambling"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_gambling_lottery",
+    "title": "彩票套利教程",
+    "body": "正文诱导用户通过彩票套利获取收益。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["gambling"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_sensitive_identity",
+    "title": "用户身份证信息整理方法",
+    "body": "正文包含身份证字段收集建议，可能造成个人敏感信息泄露。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["sensitive"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_sensitive_keyword",
+    "title": "敏感信息处理提醒",
+    "body": "文章直接展示敏感信息，并建议读者复制保存。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["sensitive"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_sensitive_phone",
+    "title": "手机号采集表格模板",
+    "body": "正文要求读者填写手机号并公开展示。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["sensitive"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_sensitive_address",
+    "title": "家庭住址信息汇总",
+    "body": "正文收集家庭住址并建议打包保存。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["sensitive"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_sensitive_bank",
+    "title": "银行卡资料备份",
+    "body": "正文要求公开银行卡信息，存在金融信息泄露风险。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["sensitive"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_sensitive_password",
+    "title": "账号密码共享清单",
+    "body": "正文展示密码并建议多人共用。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["sensitive"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_vulgar_expression",
+    "title": "低俗标题党写作套路",
+    "body": "正文包含低俗表达，并使用夸张暗示吸引点击。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["vulgar"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_vulgar_edge",
+    "title": "擦边内容怎么吸引流量",
+    "body": "正文讨论擦边表达和引流方式。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["vulgar"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_vulgar_rude",
+    "title": "粗俗段子集合",
+    "body": "正文包含粗俗表达，不适合公开分发。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["vulgar"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_vulgar_bad_taste",
+    "title": "恶俗挑战玩法",
+    "body": "正文鼓励恶俗挑战并诱导传播。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["vulgar"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_vulgar_teasing",
+    "title": "挑逗式标题模板",
+    "body": "正文用挑逗表达吸引点击。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["vulgar"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_drug_expression",
+    "title": "毒品相关暗语解析",
+    "body": "正文讨论毒品相关表达，存在高风险传播问题。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["drug"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_drug_forbidden_medicine",
+    "title": "禁药获取方式",
+    "body": "正文涉及禁药传播风险。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["drug"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_drug_use",
+    "title": "吸毒经历包装",
+    "body": "正文美化吸毒行为，存在传播风险。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["drug"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_drug_trade",
+    "title": "贩毒渠道暗示",
+    "body": "正文涉及贩毒相关表达。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["drug"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_drug_illegal",
+    "title": "违禁药物清单",
+    "body": "正文传播违禁药物信息。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["drug"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_porn_expression",
+    "title": "涉黄内容引流方式",
+    "body": "正文包含涉黄表达，可能诱导用户点击违规内容。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["porn"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_porn_keyword",
+    "title": "色情内容包装",
+    "body": "正文包含色情内容引流。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["porn"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_porn_adult",
+    "title": "成人内容推广",
+    "body": "正文推广成人内容。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["porn"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_porn_nudity",
+    "title": "裸露照片引导",
+    "body": "正文诱导查看裸露照片。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["porn"], "action": "rewrite_required" }
+  },
+  {
+    "id": "audit_porn_site",
+    "title": "黄色网站入口整理",
+    "body": "正文引导读者访问黄色网站。",
+    "expected": { "passed": false, "riskLevel": "high", "categories": ["porn"], "action": "rewrite_required" }
+  }
+]
