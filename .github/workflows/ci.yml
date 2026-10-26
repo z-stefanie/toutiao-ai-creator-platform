@@ -30,7 +30,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run evals
-      - run: npx playwright install --with-deps chrome
+      - name: Verify hosted Chrome
+        run: google-chrome --version
       - run: npm run e2e
       - uses: actions/upload-artifact@v4
         if: failure()
