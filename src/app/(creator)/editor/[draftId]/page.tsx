@@ -158,7 +158,9 @@ function SaveCopy({ fields }: { fields: DraftFields }) {
   async function save() {
     setSaving(true); setError('');
     try {
-      const data = await apiFetch<{ draft: Draft }>('/api/drafts', { method: 'POST', body: JSON.stringify({ ...fields, title: `${fields.title || '未命名草稿'}（冲突副本）`.slice(0, 120) }) });
+      const suffix = '（冲突副本）';
+      const title = `${(fields.title || '未命名草稿').slice(0, 120 - suffix.length)}${suffix}`;
+      const data = await apiFetch<{ draft: Draft }>('/api/drafts', { method: 'POST', body: JSON.stringify({ ...fields, title }) });
       setCreated(data.draft.id);
     } catch (failure) { setError(failure instanceof Error ? failure.message : '另存失败'); }
     finally { setSaving(false); }

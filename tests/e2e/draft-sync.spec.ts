@@ -126,6 +126,7 @@ test('conflicting devices preserve both versions and can save a separate copy', 
     let other = await otherContext.newPage();
     await login(other); await openDraft(other, id);
     await body(page).fill('云端段落'); await body(other).fill('我的段落');
+    await other.getByRole('textbox', { name: '标题', exact: true }).fill('长'.repeat(120));
     await save(page);
     await other.getByRole('button', { name: '保存草稿', exact: true }).click();
     await expect(other.getByRole('region', { name: '冲突处理' })).toBeVisible();
@@ -138,7 +139,8 @@ test('conflicting devices preserve both versions and can save a separate copy', 
     expect(copyId).not.toBe(id);
     const copy = await cloud(other, copyId);
     expect(copy.body).toBe('我的段落');
-    expect(copy.title).toContain('（冲突副本）');
+    expect(copy.title).toHaveLength(120);
+    expect(copy.title.endsWith('（冲突副本）')).toBe(true);
     await expect(other.getByRole('region', { name: '冲突处理' })).toBeVisible();
     await other.close();
     other = await otherContext.newPage();
