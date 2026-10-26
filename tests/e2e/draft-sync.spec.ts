@@ -123,7 +123,7 @@ test('conflicting devices preserve both versions and can save a separate copy', 
   const id = draftIdFromUrl(page);
   const otherContext = await browser.newContext({ baseURL, viewport: { width: 1280, height: 900 } });
   try {
-    const other = await otherContext.newPage();
+    let other = await otherContext.newPage();
     await login(other); await openDraft(other, id);
     await body(page).fill('云端段落'); await body(other).fill('我的段落');
     await save(page);
@@ -140,6 +140,11 @@ test('conflicting devices preserve both versions and can save a separate copy', 
     expect(copy.body).toBe('我的段落');
     expect(copy.title).toContain('（冲突副本）');
     await expect(other.getByRole('region', { name: '冲突处理' })).toBeVisible();
+    await other.close();
+    other = await otherContext.newPage();
+    await openDraft(other, id);
+    await expect(other.getByRole('region', { name: '冲突处理' })).toBeVisible();
+    await expect(body(other)).toHaveValue('我的段落');
     await other.getByRole('radio', { name: '两者都保留' }).check();
     await other.getByRole('button', { name: '确认合并' }).click();
     await expect(status(other)).toContainText('已同步到云端');
