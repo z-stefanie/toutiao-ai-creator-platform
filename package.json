@@ -16,7 +16,9 @@
     "demo:record": "node scripts/record-demo-video.mjs",
     "submission:archive": "node scripts/create-submission-archive.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint src tests prisma scripts evals '*config.ts' '*.mjs'",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.8.0",
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "prisma": "^7.8.0"
+    "prisma": "^7.8.0",
+    "vitest": "^5.0.4"
   }
 }

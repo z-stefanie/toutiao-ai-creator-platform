@@ -203,7 +203,16 @@ threshold=2500ms
 - `prisma/`：schema 和 seed。
 - `evals/`：审核、质量和 Prompt 评估材料。
 - `tests/e2e/`：Playwright E2E。
-- `docs/`：提交文档、评估报告、技术留存。
+- `docs/`：提交文档、测试说明、评估报告、技术留存。
+
+测试说明：
+
+```text
+docs/test-instructions.md
+飞书链接：（内部链接已移除）
+```
+
+当前项目暂无独立单元测试覆盖率报告，自动化验证以 E2E、evals、类型检查、Lint、生产构建和真实模型 smoke test 为主。Evals 覆盖 33 条审核样例和 3 条质量评分样例，Playwright E2E 当前 7 条用例，覆盖登录、AI 生成、编辑保存、发布审核、合规改写、离线同步、发布后编辑、榜单分发、排序解释和内容下线治理。
 
 生成代码压缩包前需要排除：
 

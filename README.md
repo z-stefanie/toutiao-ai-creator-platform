@@ -1,5 +1,7 @@
 # 头条 AI 创作者辅助生产与分发平台
 
+项目现状、下一步待办和交付材料见 [项目现状与下一步](docs/project-status.md)（2026-10-09 更新）。下文在线体验与验证结果保留 2026 年 6 月的记录，正式使用前需复核。
+
 这是字节跳动前端训练营今日头条业务课题的 MVP 工程骨架。当前版本优先跑通一条最小纵向主链路：
 
 ```text
@@ -49,7 +51,7 @@ public/demo-assets/              演示素材
 安装依赖：
 
 ```bash
-npm install
+npm ci
 ```
 
 准备本地数据库：
@@ -83,7 +85,7 @@ MVP 认证会接受任意邮箱和非空密码；以上账号用于统一演示�
 
 ## 在线体验
 
-当前临时在线体验地址：
+2026-06-11 验证过的临时在线体验地址：
 
 ```text
 https://freedom-physicians-neighborhood-photographs.trycloudflare.com
@@ -294,10 +296,16 @@ E2E 配置位于 `playwright.config.ts`，测试用例位于 `tests/e2e/mvp-flow
 - 内容治理：发布内容下线后不再进入榜单和详情消费。
 - 榜单加载与性能：动态运营权重、加载更多内容，并记录热点榜单首屏 Playwright performance baseline。
 
+## 持续集成
+
+GitHub Actions 对 main 和 PR 执行类型检查、Lint、Vitest、Mock Evals 和 Playwright E2E。依赖锁定到公共 npm 源；验证使用 Node.js 22 和 Mock AI，不需要模型密钥。
+
 ## 文档
 
+- 项目现状与下一步：[docs/project-status.md](docs/project-status.md)
 - 结构化需求：[docs/task-structured-requirements.md](docs/task-structured-requirements.md)
 - 架构与实施方案：[docs/architecture-and-implementation-plan.md](docs/architecture-and-implementation-plan.md)
 - 审核规则与质量体系：[docs/audit-and-quality-system.md](docs/audit-and-quality-system.md)
 - 效果评估报告：[docs/evaluation-report.md](docs/evaluation-report.md)
+- 测试说明：[docs/test-instructions.md](docs/test-instructions.md)
 - 技术留存：[docs/worklogs](docs/worklogs)

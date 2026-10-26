@@ -1,5 +1,7 @@
 # 官方提交差距清单
 
+> 2026-10-09 整理说明：下表主要保留 6 月交付状态。最新待办、交付包版本差异和代码提交方式的历史口径变化见[项目现状与下一步](project-status.md)。`done` 不代表今天仍能访问或已经包含最新文件。
+
 ## 1. 对照来源
 
 - 项目课题 PDF：官方课题 PDF（仅本地留存，不随源码分发）
@@ -31,10 +33,10 @@
 | 审核规则与质量评估体系 | PDF「内容安全审核规则库与质量评估体系说明」；提交模板「其他补充材料」 | done | `docs/audit-and-quality-system.md`、`src/server/audit/rule-prescreen.ts`、`evals/audit-cases.json`、`evals/quality-cases.json` | 最终模板中需避免夸大真实泛化准确率 | 文档说明安全规则库、质量评分维度、处置动作、识别-干预-反馈闭环 |
 | 效果评估与优化报告 | PDF「平台效果评估与内容分发优化报告」；提交模板「效果评估与优化报告」 | done | `docs/evaluation-report.md`、`evals/prompt-iterations.md`、`docs/worklogs/2026-06-10-step-9-real-ai-smoke-test.md` | 当前 90% 只能按样例集说明，不能宣称线上泛化；quick tunnel 可用性不等同长期部署 SLA | 报告包含 mock eval、真实模型 smoke test、Prompt 调优、性能指标、排序效果、未来优化和公网 LCP |
 | 代码压缩包 | 提交模板「代码压缩包」 | done | `dist/toutiao-ai-creator-platform-submission-2026-06-11.zip`、飞书链接 `（内部链接已移除）`、`scripts/create-submission-archive.mjs` | 当前已上传飞书；权限复核显示 `link_share_entity=closed`，提交给评委前建议确认是否改为组织内可读 | 产出可上传附件的 zip/tar 包，包含 README、源码、docs、evals、tests，不含敏感信息和缓存 |
-| README 启动与测试说明 | 提交模板「代码压缩包」 | done | `README.md` | 部署后可补在线地址和部署说明 | README 包含安装、数据库初始化、启动、验证命令、E2E、真实模型 smoke test |
+| README 启动与测试说明 | 提交模板「代码压缩包」 | done | `README.md`、`docs/test-instructions.md`、飞书链接 `（内部链接已移除）` | 部署后可补在线地址和部署说明 | README 包含安装、数据库初始化、启动、验证命令；测试说明单独说明单元测试覆盖口径、E2E、evals、真实模型 smoke test |
 | GitHub 仓库与 main/master 分支 | PDF「托管于 GitHub 的完整项目代码」 | blocked | 本地已切换到 `main`；GitHub CLI 不可用；当前 GitHub 连接器可访问仓库列表为空 | 缺少 GitHub 远端仓库 URL 或可创建仓库的工具权限；本地提交可完成，但远端推送需外部仓库 | GitHub 仓库可访问，最终代码位于 `main` 或 `master` 分支 |
 | 项目自评 | 提交模板「项目自评」 | done | `docs/project-self-review.md`、`docs/worklogs/`、`docs/evaluation-report.md`、演示视频 | 无；提交前可补作者个人信息和公开视频链接 | 自评包含完成度、不足、mock/真实模型边界、部署与长期优化路线 |
-| 飞书提交模板副本 | 提交模板使用说明 | pending | `docs/final-submission-draft.md`、本清单和现有 Markdown 文档 | 尚未创建模板副本并填写 | 在飞书中创建提交模板副本，填入全部最终材料链接 / 附件 |
+| 飞书提交模板副本 | 提交模板使用说明 | pending | `docs/final-submission-draft.md`、已有副本（内部链接已移除）、`docs/worklogs/2026-06-11-step-24-test-instructions-gap-check.md` | 已有副本的读取记录；作者信息、最终填写情况与材料访问权限仍需复核 | 完成已有模板副本，填入最终材料链接 / 附件并验证可读性 |
 | 开放 API 集成 | 提交模板「项目介绍文档」进阶挑战示例 | not applicable | 暂无 | 本项目当前不承诺抖音 / 头条开放 API 集成 | 如不实现，在完成度清单中标注为未选择加分项；不影响核心提交 |
 
 ## 4. 功能与评分维度证据
@@ -49,6 +51,6 @@
 
 ## 5. 推荐完成顺序
 
-1. 创建飞书提交模板副本，按 `docs/final-submission-draft.md` 填入在线地址、视频、文档、代码包和自评。
+1. 核对已有飞书提交模板副本，按 `docs/final-submission-draft.md` 填入在线地址、视频、文档、代码包和自评。
 2. 如需长期稳定在线地址，将 quick tunnel 替换为 Vercel / 服务器 / 命名 Cloudflare Tunnel，并复测 LCP。
-3. 提供 GitHub 远端仓库 URL，或安装/授权可创建仓库的 GitHub 工具后推送 `main`。
+3. 先确认当前适用的代码交付要求；如仍要求 GitHub，再配置远端仓库并完成 `main` 交付。口径变化见[项目现状与下一步](project-status.md)。
