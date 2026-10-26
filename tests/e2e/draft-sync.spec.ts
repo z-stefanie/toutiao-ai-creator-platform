@@ -223,3 +223,75 @@ test('paragraph AI suggestions are discarded when the paragraph changes while ge
   await expect(page.getByRole('textbox', { name: '段落 1', exact: true })).toHaveValue('生成过程中手动修改');
   expect((await cloud(page)).version).toBe(initial.version);
 });
+
+test('active takeover transfers the writer lock and later returns it with current content', async ({ page, context }) => {
+  await login(page);
+  await generateDraft(page, '主动接管编辑');
+  const id = draftIdFromUrl(page);
+  const other = await context.newPage();
+  await openDraft(other, id);
+  await expect(body(other)).toBeDisabled();
+  await body(page).fill('让出前的未同步编辑');
+  await expect(status(page)).toContainText('已保存到本机');
+  await other.getByRole('button', { name: '在此处编辑' }).click();
+  await expect(body(other)).toBeEnabled();
+  await expect(body(other)).toHaveValue('让出前的未同步编辑');
+  await expect(status(page)).toHaveText('这篇草稿正在另一个标签页中编辑');
+  await expect(body(page)).toBeDisabled();
+  await body(other).fill('接管后的新内容'); await save(other);
+  await other.close();
+  await expect(body(page)).toBeEnabled();
+  await expect(body(page)).toHaveValue('接管后的新内容');
+  expect((await cloud(page)).body).toBe('接管后的新内容');
+});
+
+test('history previews paragraph differences and restores through a new version', async ({ page }) => {
+  await login(page);
+  await generateDraft(page, '历史版本恢复');
+  const initial = await cloud(page);
+  await body(page).fill('恢复前需要保留的当前正文'); await save(page);
+  const edited = await cloud(page);
+  await page.getByRole('button', { name: '历史版本', exact: true }).click();
+  const history = page.getByRole('region', { name: '版本历史', exact: true });
+  await history.getByRole('button', { name: /新建 · 版本 1/ }).click();
+  await expect(history.getByRole('region', { name: '版本预览' })).toBeVisible();
+  await expect(page.getByTestId('history-diff')).toContainText('删除：恢复前需要保留的当前正文');
+  await expect(page.getByTestId('history-diff')).toContainText(`新增：${initial.body.split('\n\n')[0]}`);
+  await history.getByRole('button', { name: '恢复此版本' }).click();
+  await expect(history.getByText(/已恢复到 .* 的版本/)).toBeVisible();
+  await expect(body(page)).toHaveValue(initial.body);
+  const restored = await cloud(page);
+  expect(restored.body).toBe(initial.body);
+  expect(restored.version).toBe(edited.version + 1);
+  await expect(history.getByRole('button', { name: /恢复前 · 版本/ })).toBeVisible();
+  await expect(history.getByRole('button', { name: /恢复后 · 版本/ })).toBeVisible();
+  await history.getByRole('button', { name: /恢复前 · 版本/ }).click();
+  await history.getByRole('button', { name: '恢复此版本' }).click();
+  await expect(body(page)).toHaveValue('恢复前需要保留的当前正文');
+  await expect(status(page)).toContainText('已同步到云端');
+  expect((await cloud(page)).version).toBe(restored.version + 1);
+});
+
+test('compliant AI suggestions are discarded if any local field changes', async ({ page }) => {
+  await login(page);
+  await generateDraft(page, '合规改写绑定修订');
+  await body(page).fill('赌博内容用于验证审核拒绝');
+  await page.getByRole('button', { name: '发布并审核' }).click();
+  await expect(page.getByText('审核未通过')).toBeVisible();
+  const before = await cloud(page);
+  let received = false;
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/api/ai/rewrite-compliant', async (route) => {
+    const response = await route.fetch(); received = true;
+    await gate; await route.fulfill({ response });
+  });
+  await page.getByRole('button', { name: '合规改写', exact: true }).click();
+  await expect.poll(() => received).toBe(true);
+  await page.getByRole('textbox', { name: '标题', exact: true }).fill('生成过程中修改的标题');
+  release();
+  await expect(page.getByText('内容在生成期间被修改，已放弃本次改写，请重试')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '标题', exact: true })).toHaveValue('生成过程中修改的标题');
+  await expect(body(page)).toHaveValue('赌博内容用于验证审核拒绝');
+  expect((await cloud(page)).version).toBe(before.version);
+});

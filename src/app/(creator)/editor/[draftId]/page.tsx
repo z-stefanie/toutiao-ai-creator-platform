@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { CheckCircle2, RefreshCcw, Save, ShieldAlert } from 'lucide-react';
 import { AuthGate } from '@/components/auth-gate';
+import { DraftHistory } from '@/components/draft-history';
 import { useDraftSync } from '@/hooks/use-draft-sync';
 import { ApiError, apiFetch, formatDateTime } from '@/lib/client-api';
 import { parseTags, splitParagraphs, type DraftFields } from '@/lib/drafts/fields';
@@ -25,6 +26,7 @@ function EditorContent({ ownerId }: { ownerId: string }) {
   const { session, view } = sync;
   const [result, setResult] = useState<PublishResult | null>(null);
   const [message, setMessage] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [tagsInput, setTagsInput] = useState({ canonical: '', text: '' });
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestions>({
     coverSuggestion: '优先使用已选素材中最能概括主题的一张作为封面。',
@@ -105,11 +107,14 @@ function EditorContent({ ownerId }: { ownerId: string }) {
           <p className="page-subtitle">修改实时保存在本机，联网时自动同步到云端（至少每 30 秒一次）</p>
         </div>
         <div className="button-row">
+          <button className="button" disabled={view.frozen} onClick={() => setHistoryOpen(!historyOpen)} type="button">历史版本</button>
           <button className="button" disabled={disabled} onClick={() => void saveNow()} type="button"><Save size={18} />保存草稿</button>
           <button className="button primary" disabled={disabled} onClick={() => void publish()} type="button"><CheckCircle2 size={18} />发布并审核</button>
         </div>
       </div>
       {!view.durable ? <div className="notice warning">当前浏览器无法使用本地存储，关闭页面前请确认已同步到云端</div> : null}
+      {view.readOnly ? <div className="notice"><button className="button" type="button" onClick={sync.takeOver}>在此处编辑</button></div> : null}
+      {historyOpen ? <DraftHistory draftId={draftId} session={active} view={view} onClose={() => setHistoryOpen(false)} /> : null}
       {view.replica.conflict ? <ConflictPanel key={view.replica.conflict.detectedAt} session={active} view={view} /> : null}
       {view.replica.rejected?.code === 'DRAFT_NOT_FOUND' ? <SaveCopy fields={fields} /> : null}
       <div className="grid two">

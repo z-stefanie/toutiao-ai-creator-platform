@@ -16,7 +16,7 @@ const emptySnapshot = () => null;
 export function useDraftSync(ownerId: string, draftId: string) {
   const [session, setSession] = useState<DraftSession | null>(null);
   const [error, setError] = useState('');
-  const control = useRef<{ save: () => Promise<boolean>; reload: () => Promise<void> } | null>(null);
+  const control = useRef<{ save: () => Promise<boolean>; reload: () => Promise<void>; takeOver: () => void } | null>(null);
   const view = useSyncExternalStore(session?.subscribe ?? subscribeEmpty, session?.getSnapshot ?? emptySnapshot, emptySnapshot);
 
   useEffect(() => {
@@ -83,6 +83,17 @@ export function useDraftSync(ownerId: string, draftId: string) {
       store = opened;
       lock = new DraftTabLock(`draft:${ownerId}:${draftId}`, {
         acquired: () => load(false), released: release,
+        beforeYield: async () => {
+          const active = current;
+          if (!active || active.getSnapshot().frozen) return false;
+          active.setFrozen(true);
+          const saved = active.getSnapshot().durable ? await active.persist() : await active.flushFully();
+          if (!saved) {
+            active.setFrozen(false);
+            active.setNotice('修改尚未安全保存，暂时无法让出编辑权，请保存后重试');
+          }
+          return saved;
+        },
         waiting: () => { void load(true).catch(failed); }, failed
       });
       control.current = {
@@ -92,7 +103,8 @@ export function useDraftSync(ownerId: string, draftId: string) {
           active.allowRetry();
           return (await scheduler?.trigger('normal', true)) === 'success' && !active.getSnapshot().dirty;
         },
-        reload: () => load(false)
+        reload: () => lock?.isWriter() ? load(false) : Promise.resolve(),
+        takeOver: () => lock?.takeOver()
       };
       lock.start();
     }).catch(failed);
@@ -106,6 +118,7 @@ export function useDraftSync(ownerId: string, draftId: string) {
 
   return { session, view, error,
     save: () => control.current?.save() ?? Promise.resolve(false),
-    reload: () => control.current?.reload() ?? Promise.resolve()
+    reload: () => control.current?.reload() ?? Promise.resolve(),
+    takeOver: () => control.current?.takeOver()
   };
 }
