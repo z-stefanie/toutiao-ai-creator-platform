@@ -174,7 +174,7 @@ export async function auditDraft(draft: Draft): Promise<AuditResult> {
   };
 }
 
-export async function rewriteCompliantDraft(draft: Draft): Promise<RewriteResult> {
+export async function rewriteCompliantDraft(draft: Pick<Draft, 'id' | 'title' | 'body'>): Promise<RewriteResult> {
   const systemPrompt = [
     '你是内容合规改写助手。',
     '在保留原意的前提下移除违规或高风险表达。',
