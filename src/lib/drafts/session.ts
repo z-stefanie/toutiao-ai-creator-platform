@@ -248,7 +248,8 @@ export class DraftSession {
   async dispose() {
     this.disposed = true;
     this.frozen = true;
-    await this.persist();
+    this.refresh();
+    if (!this.readOnly) await this.persist();
     this.listeners.clear();
   }
 }

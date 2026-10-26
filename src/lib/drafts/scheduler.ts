@@ -14,7 +14,10 @@ export class DraftScheduler {
   private interval?: ReturnType<typeof setInterval>;
   private stopped = false;
   constructor(private flush: (mode?: FlushMode) => Promise<FlushResult>, private dirty: () => boolean,
-    private timers: Timers = { setTimeout, clearTimeout, setInterval, clearInterval }, private random = Math.random) {}
+    private timers: Timers = {
+      setTimeout: globalThis.setTimeout.bind(globalThis), clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      setInterval: globalThis.setInterval.bind(globalThis), clearInterval: globalThis.clearInterval.bind(globalThis)
+    }, private random = Math.random) {}
   start() {
     this.stopped = false;
     this.interval = this.timers.setInterval(() => { if (this.dirty() && !this.retry) void this.trigger(); }, 30_000);

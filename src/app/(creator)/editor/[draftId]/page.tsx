@@ -2,165 +2,99 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, RefreshCcw, Save, ShieldAlert } from 'lucide-react';
 import { AuthGate } from '@/components/auth-gate';
-import { useAutosaveDraft } from '@/hooks/use-autosave-draft';
-import { apiFetch, formatDateTime } from '@/lib/client-api';
-import { getOfflineDraft, saveOfflineDraft } from '@/lib/offline-drafts';
+import { useDraftSync } from '@/hooks/use-draft-sync';
+import { ApiError, apiFetch, formatDateTime } from '@/lib/client-api';
+import { parseTags, splitParagraphs, type DraftFields } from '@/lib/drafts/fields';
+import { chooseMerge, type MergeChoice } from '@/lib/drafts/merge';
+import type { DraftSession, SessionView } from '@/lib/drafts/session';
 import type { AuditResult, Content, Draft, QualityScore } from '@/lib/types';
 
-type PublishResult = {
-  published: boolean;
-  audit: AuditResult;
-  qualityScore: QualityScore | null;
-  content: Content | null;
-};
-
-type AiSuggestions = {
-  coverSuggestion: string;
-  imageSuggestions: string[];
-};
+type PublishResult = { published: boolean; audit: AuditResult; qualityScore: QualityScore | null; content: Content | null };
+type AiSuggestions = { coverSuggestion: string; imageSuggestions: string[] };
 
 export default function EditorPage() {
-  return <AuthGate>{() => <EditorContent />}</AuthGate>;
+  return <AuthGate>{(user) => <EditorContent ownerId={user.id} />}</AuthGate>;
 }
 
-function EditorContent() {
-  const params = useParams<{ draftId: string }>();
-  const draftId = params.draftId;
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [title, setTitle] = useState('');
-  const [summary, setSummary] = useState('');
-  const [body, setBody] = useState('');
-  const [tagsText, setTagsText] = useState('');
-  const [assetIds, setAssetIds] = useState<string[]>([]);
+function EditorContent({ ownerId }: { ownerId: string }) {
+  const { draftId } = useParams<{ draftId: string }>();
+  const sync = useDraftSync(ownerId, draftId);
+  const { session, view } = sync;
   const [result, setResult] = useState<PublishResult | null>(null);
   const [message, setMessage] = useState('');
+  const [tagsInput, setTagsInput] = useState({ canonical: '', text: '' });
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestions>({
     coverSuggestion: '优先使用已选素材中最能概括主题的一张作为封面。',
     imageSuggestions: ['主题场景图', '数据或流程图', '结论卡片图']
   });
-
-  const applyDraft = useCallback((nextDraft: Draft) => {
-    setDraft(nextDraft);
-    setTitle(nextDraft.title);
-    setSummary(nextDraft.summary);
-    setBody(nextDraft.body);
-    setTagsText(nextDraft.tags.join('，'));
-    setAssetIds(nextDraft.assetIds);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void apiFetch<{ draft: Draft }>(`/api/drafts/${draftId}`)
-      .then(async (data) => {
-        const localDraft = await getOfflineDraft(draftId);
-        const nextDraft = localDraft?.syncStatus === 'local_pending' ? localDraft : data.draft;
-        if (localDraft?.syncStatus === 'local_pending') {
-          setMessage('已恢复离线草稿，网络恢复后将自动同步。');
-        } else {
-          await saveOfflineDraft(data.draft);
-        }
-        if (!cancelled) applyDraft(nextDraft);
-      })
-      .catch(async () => {
-        const localDraft = await getOfflineDraft(draftId);
-        if (!cancelled && localDraft) {
-          setMessage('网络不可用，已从 IndexedDB 恢复本地草稿。');
-          applyDraft(localDraft);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [applyDraft, draftId]);
-
   useEffect(() => {
     const raw = window.sessionStorage.getItem(`draft-ai-suggestions-${draftId}`);
     if (!raw) return;
-    try {
-      const suggestions = JSON.parse(raw) as AiSuggestions;
-      setAiSuggestions({
-        coverSuggestion: suggestions.coverSuggestion || '优先使用已选素材中最能概括主题的一张作为封面。',
-        imageSuggestions: suggestions.imageSuggestions?.length
-          ? suggestions.imageSuggestions
-          : ['主题场景图', '数据或流程图', '结论卡片图']
-      });
-    } catch {
-      window.sessionStorage.removeItem(`draft-ai-suggestions-${draftId}`);
-    }
+    try { setAiSuggestions(JSON.parse(raw) as AiSuggestions); }
+    catch { window.sessionStorage.removeItem(`draft-ai-suggestions-${draftId}`); }
   }, [draftId]);
 
-  const payload = useMemo(() => {
-    if (!draft) return null;
-    return {
-      title,
-      summary,
-      body,
-      tags: tagsText
-        .split(/[，,]/)
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-      assetIds,
-      version: draft.version
-    };
-  }, [assetIds, body, draft, summary, tagsText, title]);
+  if (sync.error) return <main className="page"><div className="notice danger">{sync.error}</div></main>;
+  if (!session || !view) return <main className="page"><div className="notice">正在加载草稿…</div></main>;
+  const active = session;
+  const { working: fields } = view.replica;
+  const paragraphs = splitParagraphs(fields.body);
+  const disabled = view.readOnly || view.frozen || !!view.replica.conflict;
+  const tagsCanonical = fields.tags.join('，');
+  const tagsText = tagsInput.canonical === tagsCanonical ? tagsInput.text : tagsCanonical;
 
-  const autosave = useAutosaveDraft(draftId, payload, draft, setDraft);
-  const paragraphs = useMemo(() => splitParagraphs(body), [body]);
-
+  function edit(patch: Partial<DraftFields>) { active.edit({ ...active.getSnapshot().replica.working, ...patch }); }
   async function saveNow() {
-    const saved = await autosave.saveNow();
-    if (saved) setDraft(saved);
-  }
-
-  async function publish() {
     setMessage('');
-    setResult(null);
-    await saveNow();
-    const data = await apiFetch<PublishResult>('/api/contents/publish', {
-      method: 'POST',
-      body: JSON.stringify({ draftId })
-    });
-    setResult(data);
+    if (await sync.save()) setMessage(`草稿已保存，版本 ${active.getSnapshot().replica.serverVersion}`);
   }
-
+  async function publish() {
+    setMessage(''); setResult(null); active.setFrozen(true);
+    try {
+      if (!await active.flushFully()) {
+        setMessage(`草稿还没有同步到云端，暂时不能发布：${active.getSnapshot().status}`); return;
+      }
+      const data = await apiFetch<PublishResult>('/api/contents/publish', {
+        method: 'POST', body: JSON.stringify({ draftId, version: active.getSnapshot().replica.serverVersion })
+      });
+      setResult(data);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'DRAFT_CHANGED') {
+        setMessage('草稿在别处被修改，请确认最新内容后再发布'); await sync.reload();
+      } else setMessage(error instanceof Error ? error.message : '发布失败，请重试');
+    } finally { active.setFrozen(false); }
+  }
   async function rewrite() {
-    const data = await apiFetch<{ draft: Draft }>('/api/ai/rewrite-compliant', {
-      method: 'POST',
-      body: JSON.stringify({ draftId })
-    });
-    setDraft(data.draft);
-    setTitle(data.draft.title);
-    setSummary(data.draft.summary);
-    setBody(data.draft.body);
-    setTagsText(data.draft.tags.join('，'));
-    setMessage('已生成合规替代内容，请确认后再次发布。');
+    const initial = active.getSnapshot().replica;
+    try {
+      const data = await apiFetch<{ rewritten: { title: string; body: string } }>('/api/ai/rewrite-compliant', {
+        method: 'POST', body: JSON.stringify({ draftId, ...initial.working })
+      });
+      if (active.getSnapshot().replica.localRevision !== initial.localRevision || active.getSnapshot().frozen || active.getSnapshot().replica.conflict) {
+        setMessage('内容在生成期间被修改，已放弃本次改写，请重试'); return;
+      }
+      active.edit({ ...initial.working, title: data.rewritten.title, body: data.rewritten.body });
+      setMessage('已生成合规替代内容，请确认后再次发布。');
+    } catch (error) { setMessage(error instanceof Error ? error.message : '改写失败，请重试'); }
   }
-
   function updateParagraph(index: number, value: string) {
-    const nextParagraphs = [...paragraphs];
-    nextParagraphs[index] = value;
-    setBody(nextParagraphs.join('\n\n'));
+    const next = splitParagraphs(active.getSnapshot().replica.working.body); next[index] = value; edit({ body: next.join('\n\n') });
   }
-
   async function rewriteParagraph(index: number) {
-    await saveNow();
-    const data = await apiFetch<{ draft: Draft; rewrittenParagraph: string }>('/api/ai/rewrite-paragraph', {
-      method: 'POST',
-      body: JSON.stringify({ draftId, paragraphIndex: index })
-    });
-    applyDraft(data.draft);
-    setMessage(`第 ${index + 1} 段已完成局部重写，可继续逐段确认。`);
-  }
-
-  if (!draft) {
-    return (
-      <main className="page">
-        <div className="notice">正在加载草稿...</div>
-      </main>
-    );
+    const paragraph = splitParagraphs(active.getSnapshot().replica.working.body)[index];
+    try {
+      const data = await apiFetch<{ rewrittenParagraph: string }>('/api/ai/rewrite-paragraph', {
+        method: 'POST', body: JSON.stringify({ draftId, paragraphIndex: index, paragraph })
+      });
+      if (splitParagraphs(active.getSnapshot().replica.working.body)[index] !== paragraph || active.getSnapshot().frozen || active.getSnapshot().replica.conflict) {
+        setMessage('这一段在生成期间被修改，已放弃本次改写，请重试'); return;
+      }
+      updateParagraph(index, data.rewrittenParagraph);
+      setMessage(`第 ${index + 1} 段已完成局部重写，可继续逐段确认。`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : '改写失败，请重试'); }
   }
 
   return (
@@ -168,117 +102,83 @@ function EditorContent() {
       <div className="page-header">
         <div>
           <h1 className="page-title">图文编辑器</h1>
-          <p className="page-subtitle">
-            每 30 秒自动保存；离线写入 IndexedDB，恢复网络后自动同步。
-          </p>
+          <p className="page-subtitle">修改实时保存在本机，联网时自动同步到云端（至少每 30 秒一次）</p>
         </div>
         <div className="button-row">
-          <button className="button" onClick={saveNow} type="button">
-            <Save size={18} />
-            保存草稿
-          </button>
-          <button className="button primary" onClick={publish} type="button">
-            <CheckCircle2 size={18} />
-            发布并审核
-          </button>
+          <button className="button" disabled={disabled} onClick={() => void saveNow()} type="button"><Save size={18} />保存草稿</button>
+          <button className="button primary" disabled={disabled} onClick={() => void publish()} type="button"><CheckCircle2 size={18} />发布并审核</button>
         </div>
       </div>
-
+      {!view.durable ? <div className="notice warning">当前浏览器无法使用本地存储，关闭页面前请确认已同步到云端</div> : null}
+      {view.replica.conflict ? <ConflictPanel key={view.replica.conflict.detectedAt} session={active} view={view} /> : null}
+      {view.replica.rejected?.code === 'DRAFT_NOT_FOUND' ? <SaveCopy fields={fields} /> : null}
       <div className="grid two">
-        <section className="panel">
-          <div className="form">
-            <label className="field">
-              <span className="label">标题</span>
-              <input className="input" value={title} onChange={(event) => setTitle(event.target.value)} />
-            </label>
-            <label className="field">
-              <span className="label">摘要</span>
-              <input className="input" value={summary} onChange={(event) => setSummary(event.target.value)} />
-            </label>
-            <label className="field">
-              <span className="label">正文</span>
-              <textarea className="textarea" value={body} onChange={(event) => setBody(event.target.value)} />
-            </label>
-            <section className="stack">
-              <h2>段落创意卡片</h2>
-              {paragraphs.map((paragraph, index) => (
-                <div className="card" key={`paragraph-${index + 1}`}>
-                  <div className="button-row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-                    <strong>第 {index + 1} 段</strong>
-                    <button className="button" onClick={() => void rewriteParagraph(index)} type="button">
-                      <RefreshCcw size={16} />
-                      局部重写第 {index + 1} 段
-                    </button>
-                  </div>
-                  <textarea
-                    aria-label={`段落 ${index + 1}`}
-                    className="textarea"
-                    value={paragraph}
-                    onChange={(event) => updateParagraph(index, event.target.value)}
-                  />
-                </div>
-              ))}
-            </section>
-            <label className="field">
-              <span className="label">标签，用逗号分隔</span>
-              <input className="input" value={tagsText} onChange={(event) => setTagsText(event.target.value)} />
-            </label>
-          </div>
-        </section>
-
-        <aside className="panel">
-          <h2>发布控制台</h2>
-          <div className="stack">
-            <div className="notice">
-              <strong>封面建议</strong>
-              <p>{aiSuggestions.coverSuggestion}</p>
-            </div>
-            <div className="notice">
-              <strong>AI 配图建议</strong>
-              <div className="badge-row" style={{ marginTop: 8 }}>
-                {aiSuggestions.imageSuggestions.map((suggestion) => (
-                  <span className="badge" key={suggestion}>
-                    {suggestion}
-                  </span>
-                ))}
+        <section className="panel"><div className="form">
+          <label className="field"><span className="label">标题</span><input className="input" value={fields.title} disabled={disabled} onChange={(event) => edit({ title: event.target.value })} /></label>
+          <label className="field"><span className="label">摘要</span><input className="input" value={fields.summary} disabled={disabled} onChange={(event) => edit({ summary: event.target.value })} /></label>
+          <label className="field"><span className="label">正文</span><textarea className="textarea" value={fields.body} disabled={disabled} onChange={(event) => edit({ body: event.target.value })} /></label>
+          <section className="stack"><h2>段落创意卡片</h2>
+            {paragraphs.map((paragraph, index) => <div className="card" key={`paragraph-${index + 1}`}>
+              <div className="button-row" style={{ justifyContent: 'space-between', marginBottom: 10 }}><strong>第 {index + 1} 段</strong>
+                <button className="button" disabled={disabled} onClick={() => void rewriteParagraph(index)} type="button"><RefreshCcw size={16} />局部重写第 {index + 1} 段</button>
               </div>
-            </div>
-            <div className="notice">
-              {autosave.message} · 最近保存 {formatDateTime(draft.lastSavedAt)}
-            </div>
-            <div className="badge-row">
-              <span className="badge">版本 {draft.version}</span>
-              <span
-                className={`badge ${
-                  autosave.status === 'error'
-                    ? 'danger'
-                    : autosave.status === 'local_pending'
-                      ? 'warning'
-                      : 'success'
-                }`}
-              >
-                {autosave.status}
-              </span>
-              <span className={`badge ${draft.syncStatus === 'local_pending' ? 'warning' : 'success'}`}>
-                {draft.syncStatus}
-              </span>
-            </div>
-            {message ? <div className="notice success">{message}</div> : null}
-            {result ? (
-              <PublishResultPanel result={result} onRewrite={rewrite} />
-            ) : (
-              <div className="notice">
-                可在正文中输入“赌博”或“敏感信息”验证 Mock 审核拦截，再使用合规改写。
-              </div>
-            )}
-          </div>
-        </aside>
+              <textarea aria-label={`段落 ${index + 1}`} className="textarea" value={paragraph} disabled={disabled} onChange={(event) => updateParagraph(index, event.target.value)} />
+            </div>)}
+          </section>
+          <label className="field"><span className="label">标签，用逗号分隔</span><input className="input" value={tagsText} disabled={disabled} onChange={(event) => {
+            const tags = parseTags(event.target.value); setTagsInput({ text: event.target.value, canonical: tags.join('，') }); edit({ tags });
+          }} /></label>
+        </div></section>
+        <aside className="panel"><h2>发布控制台</h2><div className="stack">
+          <div className="notice"><strong>封面建议</strong><p>{aiSuggestions.coverSuggestion}</p></div>
+          <div className="notice"><strong>AI 配图建议</strong><div className="badge-row" style={{ marginTop: 8 }}>
+            {aiSuggestions.imageSuggestions?.map((suggestion) => <span className="badge" key={suggestion}>{suggestion}</span>)}
+          </div></div>
+          <div className="notice" role="status" data-testid="sync-status">{view.status}</div>
+          <div>最近同步 {formatDateTime(view.replica.lastSyncedAt)}</div>
+          <div className="badge-row"><span className="badge">版本 {view.replica.serverVersion}</span><span className="badge" data-testid="sync-badge">{view.badge}</span></div>
+          {view.notice ? <div className="notice">{view.notice}</div> : null}
+          {message ? <div className="notice">{message}</div> : null}
+          {result ? <PublishResultPanel result={result} onRewrite={rewrite} disabled={disabled} /> : <div className="notice">可在正文中输入“赌博”或“敏感信息”验证 Mock 审核拦截，再使用合规改写。</div>}
+        </div></aside>
       </div>
     </main>
   );
 }
 
-function PublishResultPanel({ result, onRewrite }: { result: PublishResult; onRewrite: () => Promise<void> }) {
+function SaveCopy({ fields }: { fields: DraftFields }) {
+  const [created, setCreated] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    setSaving(true); setError('');
+    try {
+      const data = await apiFetch<{ draft: Draft }>('/api/drafts', { method: 'POST', body: JSON.stringify({ ...fields, title: `${fields.title || '未命名草稿'}（冲突副本）`.slice(0, 120) }) });
+      setCreated(data.draft.id);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : '另存失败'); }
+    finally { setSaving(false); }
+  }
+  return <div className="stack"><button className="button" type="button" disabled={!fields.body.trim() || saving} onClick={() => void save()}>把我的版本另存为新草稿</button>
+    {created ? <Link href={`/editor/${created}`}>查看另存的新草稿</Link> : null}{error ? <div className="notice danger">{error}</div> : null}</div>;
+}
+
+function ConflictPanel({ session, view }: { session: DraftSession; view: SessionView }) {
+  const [choices, setChoices] = useState<Record<string, MergeChoice>>({});
+  const suggestion = view.merge;
+  if (!suggestion) return null;
+  return <section className="panel" aria-label="冲突处理"><h2>处理草稿冲突</h2>
+    <p>请选择每处冲突要保留的内容，两份内容在确认前都会保留。</p>
+    {suggestion.conflicts.map((conflict, index) => <fieldset key={conflict.id} className="card"><legend>冲突 {index + 1} · {conflict.field === 'body' ? '正文' : conflict.field === 'title' ? '标题' : '摘要'}</legend>
+      <div className="grid two"><div><strong>我的</strong><p style={{ whiteSpace: 'pre-wrap' }}>{conflict.local || '（空）'}</p></div><div><strong>云端</strong><p style={{ whiteSpace: 'pre-wrap' }}>{conflict.remote || '（空）'}</p></div></div>
+      <div className="button-row">{(['local', 'remote', ...(conflict.field === 'body' ? ['both'] : [])] as MergeChoice[]).map((choice) =>
+        <label key={choice}><input type="radio" disabled={view.readOnly} name={conflict.id} checked={choices[conflict.id] === choice} onChange={() => setChoices({ ...choices, [conflict.id]: choice })} />{choice === 'local' ? '用我的' : choice === 'remote' ? '用云端' : '两者都保留'}</label>
+      )}</div></fieldset>)}
+    <button className="button primary" type="button" disabled={view.readOnly || suggestion.conflicts.some((conflict) => !choices[conflict.id])} onClick={() => session.resolveConflict(chooseMerge(suggestion, choices))}>确认合并</button>
+    <SaveCopy fields={view.replica.working} />
+  </section>;
+}
+
+function PublishResultPanel({ result, onRewrite, disabled }: { result: PublishResult; onRewrite: () => Promise<void>; disabled: boolean }) {
   if (!result.published) {
     return (
       <div className="notice danger">
@@ -286,7 +186,7 @@ function PublishResultPanel({ result, onRewrite }: { result: PublishResult; onRe
           <strong>
             <ShieldAlert size={18} /> 审核未通过
           </strong>
-          <button className="button" onClick={() => void onRewrite()} type="button">
+          <button className="button" disabled={disabled} onClick={() => void onRewrite()} type="button">
             <RefreshCcw size={18} />
             合规改写
           </button>
@@ -322,11 +222,4 @@ function PublishResultPanel({ result, onRewrite }: { result: PublishResult; onRe
       ) : null}
     </div>
   );
-}
-
-function splitParagraphs(value: string) {
-  return value
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
 }

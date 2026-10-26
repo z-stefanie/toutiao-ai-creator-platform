@@ -1,5 +1,9 @@
 import type { ApiResponse } from './types';
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public code: string, public details?: unknown) { super(message); }
+}
+
 export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, {
     ...init,
@@ -11,7 +15,7 @@ export async function apiFetch<T>(input: RequestInfo | URL, init?: RequestInit):
   const payload = (await response.json()) as ApiResponse<T>;
 
   if (!payload.ok) {
-    throw new Error(payload.error.message);
+    throw new ApiError(payload.error.message, response.status, payload.error.code, payload.error.details);
   }
 
   return payload.data;
