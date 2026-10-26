@@ -259,9 +259,6 @@ function EditorContent() {
               >
                 {autosave.status}
               </span>
-              <span className={`badge ${draft.syncStatus === 'local_pending' ? 'warning' : 'success'}`}>
-                {draft.syncStatus}
-              </span>
             </div>
             {message ? <div className="notice success">{message}</div> : null}
             {result ? (
