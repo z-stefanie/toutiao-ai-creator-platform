@@ -21,4 +21,3 @@ export function draftIdFromUrl(page: Page) {
   expect(match).not.toBeNull();
   return match?.[1] ?? '';
 }
-

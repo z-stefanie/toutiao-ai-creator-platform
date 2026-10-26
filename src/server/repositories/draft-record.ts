@@ -18,4 +18,3 @@ export function mapDraft(draft: PrismaDraft): Draft {
     updatedAt: draft.updatedAt.toISOString()
   };
 }
-
