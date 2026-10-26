@@ -145,4 +145,26 @@ describe('draft routes', () => {
     expect(response.status).toBe(200); expect((await response.json()).data.published).toBe(true);
     expect(await prisma.draftSnapshot.count({ where: { draftId: draft.id, reason: 'publish', version: 1 } })).toBe(1);
   });
+  it('rejects a draft changed while publication audit is in progress', async () => {
+    const ai = await import('@/server/ai/ai-service');
+    const original = ai.auditDraft;
+    let release = () => {};
+    let started = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const auditing = new Promise<void>((resolve) => { started = resolve; });
+    const audit = vi.spyOn(ai, 'auditDraft').mockImplementationOnce(async (input) => {
+      started(); await gate; return original(input);
+    });
+    try {
+      const pending = publish(new NextRequest('http://localhost/api/contents/publish', { method: 'POST', body: JSON.stringify({ draftId: draft.id, version: 1 }) }));
+      await auditing;
+      expect((await repo.saveDraftOperation(owner, draft.id, operation())).status).toBe('applied');
+      release();
+      const response = await pending;
+      expect(response.status).toBe(409);
+      expect((await response.json()).error.details.currentVersion).toBe(2);
+      expect(await prisma.draftSnapshot.count({ where: { draftId: draft.id, reason: 'publish' } })).toBe(0);
+      expect((await app.getDraftForUser(owner, draft.id))?.contentId).toBeUndefined();
+    } finally { release(); audit.mockRestore(); }
+  });
 });

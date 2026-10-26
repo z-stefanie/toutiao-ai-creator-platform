@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTransport } from '@/lib/drafts/transport';
 import { DraftScheduler } from '@/lib/drafts/scheduler';
-import { IndexedDraftStore } from '@/lib/drafts/store';
+import { IndexedDraftStore, openDraftStore } from '@/lib/drafts/store';
 import { createReplica } from '@/lib/drafts/replica';
 import { remote } from './draft-fixtures';
 
@@ -39,6 +39,18 @@ describe('HTTP transport', () => {
 });
 
 describe('IndexedDB transaction durability', () => {
+  it('closes a late database connection after falling back from a blocked open', async () => {
+    const close = vi.fn();
+    const request = { onblocked: () => {}, onsuccess: () => {}, result: { close } };
+    vi.stubGlobal('indexedDB', { open: () => request });
+    try {
+      const pending = openDraftStore();
+      request.onblocked();
+      expect((await pending).durable).toBe(false);
+      request.onsuccess();
+      expect(close).toHaveBeenCalledOnce();
+    } finally { vi.unstubAllGlobals(); }
+  });
   it('waits for transaction complete, not request success', async () => {
     const request = {};
     const tx = { objectStore: () => ({ put: () => request }), oncomplete: () => {}, onerror: () => {}, onabort: () => {} };

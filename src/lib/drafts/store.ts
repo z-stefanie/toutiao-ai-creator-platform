@@ -45,15 +45,17 @@ export async function openDraftStore(): Promise<DraftStore> {
   try {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('toutiao-drafts', 1);
+      let abandoned = false;
       request.onupgradeneeded = () => {
         request.result.createObjectStore('replicas', { keyPath: ['ownerId', 'draftId'] });
       };
       request.onsuccess = () => {
+        if (abandoned) { request.result.close(); return; }
         request.result.onversionchange = () => request.result.close();
         resolve(request.result);
       };
       request.onerror = () => reject(request.error);
-      request.onblocked = () => reject(new Error('本机数据库被占用'));
+      request.onblocked = () => { abandoned = true; reject(new Error('本机数据库被占用')); };
     });
     return new IndexedDraftStore(db);
   } catch {

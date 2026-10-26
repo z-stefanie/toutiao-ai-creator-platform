@@ -2,6 +2,22 @@ export type ParagraphBlock = { base: string[]; local: string[]; remote: string[]
 type Change = { start: number; end: number; values: string[] };
 
 export function lcsPairs(base: string[], changed: string[]) {
+  let prefix = 0;
+  while (prefix < base.length && prefix < changed.length && base[prefix] === changed[prefix]) prefix += 1;
+  let suffix = 0;
+  while (suffix < base.length - prefix && suffix < changed.length - prefix && base[base.length - 1 - suffix] === changed[changed.length - 1 - suffix]) suffix += 1;
+  const left = base.slice(prefix, base.length - suffix);
+  const right = changed.slice(prefix, changed.length - suffix);
+  // Extremely fragmented text falls back to a conservative changed block, never an unsafe merge.
+  const middle = left.length * right.length <= 1_000_000 ? alignMiddle(left, right) : [];
+  return [
+    ...Array.from({ length: prefix }, (_, index): [number, number] => [index, index]),
+    ...middle.map(([i, j]): [number, number] => [i + prefix, j + prefix]),
+    ...Array.from({ length: suffix }, (_, index): [number, number] => [base.length - suffix + index, changed.length - suffix + index])
+  ];
+}
+
+function alignMiddle(base: string[], changed: string[]) {
   const table = Array.from({ length: base.length + 1 }, () => new Uint32Array(changed.length + 1));
   for (let i = base.length - 1; i >= 0; i -= 1) {
     for (let j = changed.length - 1; j >= 0; j -= 1) {

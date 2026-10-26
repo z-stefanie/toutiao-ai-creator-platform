@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { diff3 } from '@/lib/drafts/diff3';
+import { diff3, lcsPairs } from '@/lib/drafts/diff3';
 import { chooseMerge, mergeDraft } from '@/lib/drafts/merge';
 import { normalizeFields, parseTags, sameFields } from '@/lib/drafts/fields';
 import { createReplica, reconcile } from '@/lib/drafts/replica';
 import { remote } from './draft-fixtures';
 
 describe('paragraph diff3', () => {
+  it('bounds LCS memory for fragmented text while preserving both conflicting copies', () => {
+    const base = Array.from({ length: 1100 }, (_, index) => `base-${index}`);
+    const local = base.map((text) => `local-${text}`);
+    const cloud = base.map((text) => `cloud-${text}`);
+    expect(lcsPairs(['prefix', ...base, 'suffix'], ['prefix', ...local, 'suffix'])).toEqual([[0, 0], [1101, 1101]]);
+    const blocks = diff3(base, local, cloud);
+    expect(blocks).toEqual([{ base, local, remote: cloud, merged: undefined }]);
+    expect(diff3(base, base, cloud)[0].merged).toEqual(cloud);
+  });
   it.each([
     [['a', 'b', 'c'], ['A', 'b', 'c'], ['a', 'b', 'C'], ['A', 'b', 'C']],
     [['a', 'b'], ['A', 'b'], ['a', 'B'], ['A', 'B']],
