@@ -13,6 +13,7 @@ export type SessionView = {
   notice?: string;
   merge?: MergeSuggestion;
   durable: boolean;
+  storageFailed: boolean;
   frozen: boolean;
   readOnly: boolean;
   dirty: boolean;
@@ -72,12 +73,12 @@ export class DraftSession {
       status = this.store.durable && localSaved ? '登录已失效，请重新登录后继续同步（修改已保存在本机）' : '登录已失效，请重新登录后继续同步（请不要关闭页面）'; badge = '待同步';
     }
     if (r.rejected) { status = `同步被拒绝：${r.rejected.message}`; badge = '待同步'; }
-    if (this.storageError) { status = `本机保存失败：${this.storageError}`; badge = '待同步'; }
+    if (this.storageError !== undefined) { status = `本机保存失败：${this.storageError}`; badge = '待同步'; }
     if (r.conflict) { status = '云端有更新的版本，需要处理冲突'; badge = '冲突'; }
     if (this.readOnly) { status = '这篇草稿正在另一个标签页中编辑'; badge = '只读'; }
     this.view = { replica: r, persistedRevision: this.persistedRevision, status, badge, notice: this.notice,
       merge: r.conflict ? mergeDraft(r.base.fields, r.working, r.conflict.remote) : undefined,
-      durable: this.store.durable, frozen: this.frozen, readOnly: this.readOnly, dirty };
+      durable: this.store.durable, storageFailed: this.storageError !== undefined, frozen: this.frozen, readOnly: this.readOnly, dirty };
     this.listeners.forEach((listener) => listener());
   }
   private change(next: DraftReplica) {
@@ -167,7 +168,8 @@ export class DraftSession {
         await this.persist();
         return 'success';
       }
-      if (mode !== 'hidden' && !await this.persist()) return 'blocked';
+      // Failed local writes leave replay in memory; cloud recovery must remain available.
+      if (mode !== 'hidden') await this.persist();
       if (this.disposed) return 'blocked';
       const operation: DraftOperation = {
         operationId: this.options.operationId?.() ?? crypto.randomUUID(),
@@ -175,8 +177,8 @@ export class DraftSession {
         kind: this.replica.pendingKind, fields: structuredClone(this.replica.working)
       };
       this.change({ ...this.replica, inFlight: operation });
-      const durable = this.persist();
-      if (mode !== 'hidden' && !await durable) return 'blocked';
+      const persisted = this.persist();
+      if (mode !== 'hidden') await persisted;
     }
     const operation = this.replica.inFlight;
     if (!operation || this.disposed) return 'blocked';

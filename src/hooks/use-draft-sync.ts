@@ -65,7 +65,8 @@ export function useDraftSync(ownerId: string, draftId: string) {
       const hidden = () => { void activeScheduler.trigger('hidden'); };
       const visibility = () => { if (document.visibilityState === 'hidden') hidden(); };
       const beforeUnload = (event: BeforeUnloadEvent) => {
-        if (!next.getSnapshot().durable && next.getSnapshot().dirty) { event.preventDefault(); event.returnValue = ''; }
+        const { dirty, durable, storageFailed } = next.getSnapshot();
+        if (dirty && (!durable || storageFailed)) { event.preventDefault(); event.returnValue = ''; }
       };
       window.addEventListener('online', online); window.addEventListener('offline', offline);
       window.addEventListener('pagehide', hidden); document.addEventListener('visibilitychange', visibility);

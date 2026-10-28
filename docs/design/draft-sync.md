@@ -112,6 +112,8 @@ count=0 或回执主键冲突后再次读回执，覆盖“另一个相同操作
 
 `DraftSession` 是与 React 无关的状态机，使用缓存视图供 `useSyncExternalStore` 订阅。edit 同步改变 working/revision；异步落盘循环合并最新 generation，避免每个按键都排队一个事务。读写 Promise 都以 IDB 事务完成为界，写入失败保留内存修改并显示错误。
 
+正常同步会等待当前修订及 inFlight 的落盘尝试结束；写入失败仍继续向云端发送，保留“本机保存失败”提示。同一页面内的网络重试继续使用内存里的原操作和 key。视图通过 `storageFailed` 区分数据库可用与最近写入失败；尚有未确认修改且本机存储不可用或写入失败时，beforeunload 请求浏览器提醒。收到当前修订的 ACK 后不再提醒，但存储错误只有后续落盘成功才清除。本机未持久化的操作无法保证跨关页重放。
+
 flush 使用 single-flight：重复触发只设置 rerun，不并发发请求。一次触发发一个内容快照，期间的新输入留给下一次触发；重复触发至多合并成一个待执行轮次。空 flush 也先让出一个微任务，防止已完成 Promise 被错误缓存。恢复或合并的原因不会被之后的普通输入抹掉。
 
 触发时机为：有未确认修改时每 30 秒、手动保存、online、visibilitychange hidden、pagehide、重开恢复未确认修改，以及发布之前。隐藏页面的发送和落盘并行，因为卸载时间有限；编码后的请求小于 60 KiB 才设置 keepalive，安全性仍依赖已提交的本机副本。
@@ -157,7 +159,8 @@ AI 段落建议绑定请求时原段落，合规建议绑定请求时修订号�
 | IndexedDB 被禁用 | 内存降级，不宣称本机持久化 | `unavailable IndexedDB degrades to memory without claiming local durability` |
 | IDB 事务未完成 | 不宣称保存成功 | `waits for transaction complete, not request success` |
 | 数据库打开被阻塞 | 内存降级，关闭迟到连接 | `closes a late database connection after falling back from a blocked open` |
-| 配额不足 | 显示保存失败，保留编辑 | `reports quota failures and never claims durable storage in memory mode` |
+| 本机写入失败（如配额不足） | 持续提示本机保存失败，仍发送到云端；未确认修改关页前提醒，ACK 后解除提醒 | `reports quota failures and never claims durable storage in memory mode` / `failed IndexedDB writes still synchronize and warn before unloading unsynced edits` |
+| 本机写入失败且网络失败 | 保留内存中的同一操作与 key，重试不重复增加版本 | `replays the same operation after a network failure even when local writes fail` |
 | 登录失效 | 保留原待发操作 | `retains uncertain operation on 401 and recovers after manual retry` |
 | 无内容变化 | 不发请求、不空增版本 | `returning to base content requires no request` / `recovers from an empty flush and permits later sends` |
 | 多触发同时发生 | 只保留一个在途操作 | `single-flight coalesces triggers into at most one additional round` |

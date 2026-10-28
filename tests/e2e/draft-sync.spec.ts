@@ -190,6 +190,36 @@ test('unavailable IndexedDB degrades to memory without claiming local durability
   expect(await page.locator('html').getAttribute('data-false-durability')).toBeNull();
 });
 
+test('failed IndexedDB writes still synchronize and warn before unloading unsynced edits', async ({ page }) => {
+  await page.addInitScript(() => {
+    IDBObjectStore.prototype.put = () => { throw new DOMException('quota full', 'QuotaExceededError'); };
+    const observer = new MutationObserver(() => {
+      const text = document.querySelector('[data-testid="sync-status"]')?.textContent ?? '';
+      if (text.includes('已保存到本机')) document.documentElement.dataset.falseDurability = 'true';
+    });
+    observer.observe(document, { childList: true, subtree: true, characterData: true });
+  });
+  const unloadPrevented = () => page.evaluate(() => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  await login(page);
+  await generateDraft(page, '本机写入失败');
+  await expect(status(page)).toHaveText('本机保存失败：quota full');
+  expect(await unloadPrevented()).toBe(false);
+  const initial = await cloud(page);
+  const text = '本机配额不足时仍需同步到云端';
+  await body(page).fill(text);
+  expect(await unloadPrevented()).toBe(true);
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await expect(page.getByText(`草稿已保存，版本 ${initial.version + 1}`, { exact: true })).toBeVisible();
+  expect((await cloud(page)).body).toBe(text);
+  await expect(status(page)).toHaveText('本机保存失败：quota full');
+  expect(await unloadPrevented()).toBe(false);
+  expect(await page.locator('html').getAttribute('data-false-durability')).toBeNull();
+});
+
 test('publishing flushes the visible edits and refuses to publish offline', async ({ page, context }) => {
   await login(page);
   await generateDraft(page, '发布可见版本');

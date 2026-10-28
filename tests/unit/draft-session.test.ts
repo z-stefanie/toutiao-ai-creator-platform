@@ -130,10 +130,30 @@ describe('DraftSession', () => {
   it('reports quota failures and never claims durable storage in memory mode', async () => {
     const store = new DurableStore(); vi.spyOn(store, 'put').mockRejectedValue(new DOMException('quota full', 'QuotaExceededError'));
     const { session, edit, send } = setup(undefined, store); edit(); await session.persist();
-    expect(session.getSnapshot().status).toContain('本机保存失败'); await session.flush(); expect(send).not.toHaveBeenCalled();
+    expect(session.getSnapshot().status).toContain('本机保存失败');
+    expect(await session.flush()).toBe('success');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot()).toMatchObject({ durable: true, storageFailed: true, dirty: false });
+    expect(session.getSnapshot().status).toContain('本机保存失败');
     const memory = new DraftSession(createReplica(remote), new MemoryDraftStore(), async (op) => acknowledge(op));
     memory.edit({ ...remote, body: 'memory' }); await memory.persist();
     expect(memory.getSnapshot().status).not.toContain('已保存到本机'); expect(await memory.flushFully()).toBe(true);
+  });
+  it('replays the same operation after a network failure even when local writes fail', async () => {
+    const store = new DurableStore(); vi.spyOn(store, 'put').mockRejectedValue(new DOMException('quota full', 'QuotaExceededError'));
+    const { session, edit, send } = setup(async () => { throw new TypeError('Failed to fetch'); }, store);
+    edit();
+    expect(await session.flush()).toBe('retry');
+    expect(send).toHaveBeenCalledTimes(1);
+    const operation = send.mock.calls[0][0];
+    expect(session.getSnapshot().replica.inFlight).toBe(operation);
+    expect(session.getSnapshot()).toMatchObject({ storageFailed: true, dirty: true });
+    send.mockImplementation(async (op) => acknowledge(op));
+    expect(await session.flush()).toBe('success');
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1][0]).toBe(operation);
+    expect(session.getSnapshot()).toMatchObject({ storageFailed: true, dirty: false });
+    expect(session.getSnapshot().replica.serverVersion).toBe(remote.version + 1);
   });
   it('freezes publication input and stops future writes on disposal', async () => {
     const { session, edit, send } = setup(); session.setFrozen(true); expect(edit()).toBe(false);
