@@ -11,7 +11,8 @@ mkdirSync(dirname(resolvedDbPath), { recursive: true });
 
 const sql = readFileSync(schemaSqlPath, 'utf8')
   .replaceAll('CREATE TABLE ', 'CREATE TABLE IF NOT EXISTS ')
-  .replaceAll('CREATE UNIQUE INDEX ', 'CREATE UNIQUE INDEX IF NOT EXISTS ');
+  .replaceAll('CREATE UNIQUE INDEX ', 'CREATE UNIQUE INDEX IF NOT EXISTS ')
+  .replaceAll('CREATE INDEX ', 'CREATE INDEX IF NOT EXISTS ');
 
 const db = new Database(resolvedDbPath);
 db.pragma('foreign_keys = ON');

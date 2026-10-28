@@ -1,3 +1,5 @@
+import { mapDraft } from '@/server/repositories/draft-record';
+import { writeDraftSnapshot, trimDraftSnapshots } from '@/server/repositories/draft-repository';
 import type {
   Asset,
   AiCallLog,
@@ -25,7 +27,6 @@ import type {
   AiCallLog as PrismaAiCallLog,
   AuditResult as PrismaAuditResult,
   Content as PrismaContent,
-  Draft as PrismaDraft,
   Prompt as PrismaPrompt,
   QualityScore as PrismaQualityScore,
   RankingMetric as PrismaRankingMetric,
@@ -85,24 +86,6 @@ function mapAsset(asset: PrismaAsset): Asset {
     complianceStatus: asset.complianceStatus as Asset['complianceStatus'],
     complianceReason: asset.complianceReason ?? undefined,
     createdAt: asset.createdAt.toISOString()
-  };
-}
-
-function mapDraft(draft: PrismaDraft): Draft {
-  return {
-    id: draft.id,
-    ownerId: draft.ownerId,
-    contentId: draft.contentId ?? undefined,
-    title: draft.title,
-    summary: draft.summary,
-    body: draft.body,
-    assetIds: parseJson<string[]>(draft.assetIdsJson, []),
-    tags: parseJson<string[]>(draft.tagsJson, []),
-    version: draft.version,
-    syncStatus: draft.syncStatus as Draft['syncStatus'],
-    lastSavedAt: draft.lastSavedAt.toISOString(),
-    createdAt: draft.createdAt.toISOString(),
-    updatedAt: draft.updatedAt.toISOString()
   };
 }
 
@@ -468,7 +451,14 @@ export async function createDraftForUser(userId: string, input: DraftInput): Pro
       tagsJson: JSON.stringify(input.tags),
       version: 1,
       syncStatus: 'synced',
-      lastSavedAt: now
+      lastSavedAt: now,
+      snapshots: {
+        create: {
+          id: crypto.randomUUID(), ownerId: userId, version: 1, reason: 'created',
+          title: input.title, summary: input.summary, body: input.body,
+          assetIdsJson: JSON.stringify(input.assetIds), tagsJson: JSON.stringify(input.tags), createdAt: now
+        }
+      }
     }
   });
   return mapDraft(draft);
@@ -479,52 +469,6 @@ export async function getDraftForUser(userId: string, draftId: string): Promise<
     where: { id: draftId, ownerId: userId }
   });
   return draft ? mapDraft(draft) : null;
-}
-
-export async function updateDraftForUser(userId: string, draftId: string, input: DraftInput): Promise<Draft | null> {
-  const existing = await prisma.draft.findFirst({
-    where: { id: draftId, ownerId: userId }
-  });
-  if (!existing) return null;
-
-  if (input.version !== undefined && input.version < existing.version) {
-    throw Object.assign(new Error('DRAFT_CONFLICT'), {
-      code: 'DRAFT_CONFLICT',
-      serverVersion: existing.version
-    });
-  }
-
-  const updated = await prisma.draft.update({
-    where: { id: draftId },
-    data: {
-      title: input.title,
-      summary: input.summary,
-      body: input.body,
-      assetIdsJson: JSON.stringify(input.assetIds),
-      tagsJson: JSON.stringify(input.tags),
-      version: existing.version + 1,
-      syncStatus: 'synced',
-      lastSavedAt: new Date()
-    }
-  });
-  return mapDraft(updated);
-}
-
-export async function rewriteDraftForUser(userId: string, draftId: string, input: Pick<Draft, 'title' | 'body'>) {
-  const existing = await prisma.draft.findFirst({
-    where: { id: draftId, ownerId: userId }
-  });
-  if (!existing) return null;
-  const updated = await prisma.draft.update({
-    where: { id: draftId },
-    data: {
-      title: input.title,
-      body: input.body,
-      version: existing.version + 1,
-      lastSavedAt: new Date()
-    }
-  });
-  return mapDraft(updated);
 }
 
 export async function saveAuditResult(result: AuditResult): Promise<AuditResult> {
@@ -559,6 +503,13 @@ export async function publishDraftForUser(
   const contentId = draft.contentId ?? createId('content');
 
   const result = await prisma.$transaction(async (tx) => {
+    const guard = await tx.draft.updateMany({
+      where: { id: draft.id, ownerId: userId, version: draft.version }, data: { contentId }
+    });
+    if (guard.count !== 1) {
+      const current = await tx.draft.findFirst({ where: { id: draft.id, ownerId: userId }, select: { version: true } });
+      throw Object.assign(new Error('DRAFT_CHANGED'), { code: 'DRAFT_CHANGED', currentVersion: current?.version });
+    }
     const savedAudit = await tx.auditResult.update({
       where: { id: audit.id },
       data: {
@@ -621,10 +572,8 @@ export async function publishDraftForUser(
         calculatedAt: new Date(rankingMetric.calculatedAt)
       }
     });
-    await tx.draft.update({
-      where: { id: draft.id },
-      data: { contentId }
-    });
+    await writeDraftSnapshot(tx, userId, draft.id, draft.version, 'publish', draft, now);
+    await trimDraftSnapshots(tx, draft.id);
     const savedMetric = await tx.rankingMetric.findUniqueOrThrow({ where: { contentId } });
     return { content, savedAudit, savedQuality, savedMetric };
   });

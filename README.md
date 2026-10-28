@@ -32,7 +32,7 @@
 src/app/                         Next.js 页面与 Route Handlers
 src/components/                  通用前端组件
 src/features/feed/               榜单页面组件
-src/hooks/                       编辑器自动保存与离线同步 Hook
+src/hooks/                       草稿会话、持久化和浏览器生命周期 Hook
 src/lib/                         客户端 API、类型和榜单配置
 src/server/ai/                   AI Service、Mock Provider、OpenAI-compatible Provider
 src/server/audit/                发布前规则预筛
@@ -187,7 +187,7 @@ npm run submission:archive
 5. 点击“保存草稿”，确认版本号和保存状态更新。
 6. 在“段落创意卡片”中点击“局部重写第 1 段”，确认单段内容被改写。
 7. 查看封面建议和 AI 配图建议。
-8. 断开网络后继续编辑并保存，可看到 `local_pending`，恢复网络后自动同步。
+8. 断开网络后继续编辑，落盘后显示“离线中：修改已保存在本机，联网后自动同步”和“离线”徽标；恢复网络后自动同步，收到确认后显示“已同步到云端”。
 9. 点击“发布并审核”，正常内容会通过 Mock 审核并进入榜单。
 10. 在正文中加入“赌博”或“敏感信息”，再次发布可验证规则预筛和 Mock 审核拦截。
 11. 点击“合规改写”，确认风险词被替换，再次发布。
@@ -231,7 +231,8 @@ artifacts/demo-video/toutiao-ai-creator-demo-2026-06-11.webm
 - AI 生成、审核、合规改写、质量评分默认走 Mock Provider，也可通过环境变量切换到 OpenAI 兼容服务。
 - AI 生成结果包含封面建议和配图建议，编辑器支持段落卡片和单段局部重写。
 - 审核前有规则预筛层，当前覆盖涉黄、涉赌、涉毒、敏感信息、低俗内容等 27 个风险词。
-- 编辑器支持 IndexedDB 本地草稿镜像，离线编辑会标记 `local_pending`，网络恢复后自动同步服务端。
+- 编辑器实时将修改写入 IndexedDB，事务完成后才显示“已保存到本机”；云端 ACK 只确认对应修订，自动同步使用版本校验与幂等操作，冲突可合并或另存副本。
+- 草稿支持版本历史、恢复和同浏览器标签页接管。本机存储不可用或写入失败时仍可同步到云端，未同步修改在关页前请求浏览器提醒。
 - 已发布内容可从详情页重新进入编辑器，修改后重新审核、评分并更新线上详情。
 - 内容治理支持最小下线 API：下线后内容不再进入榜单和详情消费。
 - 素材上传尚未接入真实对象存储，当前使用 `public/demo-assets` 中的演示素材。
@@ -284,13 +285,15 @@ npm run evals
 
 ## E2E 测试
 
-E2E 配置位于 `playwright.config.ts`，测试用例位于 `tests/e2e/mvp-flow.spec.ts`。
+E2E 配置位于 `playwright.config.ts`，测试用例位于 `tests/e2e/mvp-flow.spec.ts`（7 条主链路）和 `tests/e2e/draft-sync.spec.ts`（14 条草稿用例）。
 
 当前覆盖：
 
 - 成功主链路：登录、AI 生成、草稿保存、发布审核、热点榜单、内容详情排序解释。
 - 短图文编辑器：封面/配图建议、段落卡片、单段局部重写、保存发布。
-- 离线草稿：断网输入、本地 `local_pending`、恢复网络后同步服务端。
+- 草稿同步：本机修订、在线/断网编辑后关页重开、重连恢复、云端确认、响应丢失后的幂等重放与旧响应保护。
+- 草稿冲突与恢复：多设备自动合并、人工解决冲突、另存副本、多标签页接管、历史版本恢复和过期 AI 建议丢弃。
+- 本机存储故障：IndexedDB 不可用或写入失败时不误报本机保存，仍能同步到云端；写入失败且有未同步修改时关页提醒。
 - 发布后编辑：详情页重新进入编辑器、再次审核评分、详情页更新。
 - 审核分支：风险词拦截、合规改写、再次发布。
 - 内容治理：发布内容下线后不再进入榜单和详情消费。
@@ -305,6 +308,7 @@ GitHub Actions 对 main 和 PR 执行类型检查、Lint、Vitest、Mock Evals �
 - 项目现状与下一步：[docs/project-status.md](docs/project-status.md)
 - 结构化需求：[docs/task-structured-requirements.md](docs/task-structured-requirements.md)
 - 架构与实施方案：[docs/architecture-and-implementation-plan.md](docs/architecture-and-implementation-plan.md)
+- 草稿同步设计与失败场景：[docs/design/draft-sync.md](docs/design/draft-sync.md)
 - 审核规则与质量体系：[docs/audit-and-quality-system.md](docs/audit-and-quality-system.md)
 - 效果评估报告：[docs/evaluation-report.md](docs/evaluation-report.md)
 - 测试说明：[docs/test-instructions.md](docs/test-instructions.md)

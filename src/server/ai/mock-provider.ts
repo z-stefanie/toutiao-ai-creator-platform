@@ -60,7 +60,7 @@ export function mockAuditDraft(draft: Pick<Draft, 'id' | 'title' | 'body'>): Aud
   };
 }
 
-export function mockRewriteDraft(draft: Draft) {
+export function mockRewriteDraft(draft: Pick<Draft, 'id' | 'title' | 'body'>) {
   let title = draft.title;
   let body = draft.body;
   const changedSpans: Array<{ before: string; after: string; reason: string }> = [];

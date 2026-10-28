@@ -35,20 +35,33 @@ export const updateDraftSchema = z.object({
   version: z.number().int().nonnegative().optional()
 });
 
-export const syncDraftSchema = z.object({
-  changes: updateDraftSchema,
-  localUpdatedAt: z.string()
+export const draftOperationSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  localRevision: z.number().int().positive(),
+  kind: z.enum(['edit', 'merge', 'restore']),
+  fields: z.object({
+    title: z.string().max(120),
+    summary: z.string().max(280),
+    body: z.string().max(100000),
+    tags: z.array(z.string()).max(50),
+    assetIds: z.array(z.string()).max(50)
+  })
 });
 
 export const publishSchema = z.object({
-  draftId: z.string()
+  draftId: z.string(),
+  version: z.number().int().positive().optional()
 });
 
 export const rewriteSchema = z.object({
-  draftId: z.string()
+  draftId: z.string(),
+  title: z.string().max(120),
+  summary: z.string().max(280),
+  body: z.string().max(100000)
 });
 
 export const rewriteParagraphSchema = z.object({
   draftId: z.string(),
-  paragraphIndex: z.number().int().nonnegative()
+  paragraphIndex: z.number().int().nonnegative(),
+  paragraph: z.string().min(1).max(5000)
 });

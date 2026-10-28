@@ -1,26 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-
-async function login(page: Page) {
-  await page.goto('/login');
-  await page.getByRole('button', { name: '登录' }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole('heading', { name: /今天从一条可发布链路开始/ })).toBeVisible();
-}
-
-async function generateDraft(page: Page, topic: string) {
-  await page.goto('/create');
-  await page.getByRole('textbox', { name: '主题' }).fill(topic);
-  await expect(page.getByText('city-workspace.svg · passed')).toBeVisible();
-  await page.getByRole('button', { name: '生成草稿' }).click();
-  await expect(page).toHaveURL(/\/editor\/draft_/);
-  await expect(page.getByRole('heading', { name: '图文编辑器' })).toBeVisible();
-}
-
-function draftIdFromUrl(page: Page) {
-  const match = page.url().match(/\/editor\/([^/?#]+)/);
-  expect(match).not.toBeNull();
-  return match?.[1] ?? '';
-}
+import { expect, test } from '@playwright/test';
+import { login, generateDraft, draftIdFromUrl } from './helpers';
 
 test('creator can generate, save, publish, and read ranked content', async ({ page }) => {
   const topic = `E2E 主链路 ${Date.now()}`;
@@ -74,12 +53,12 @@ test('offline draft edits are mirrored locally and synced after reconnect', asyn
   await bodyBox.fill(`${await bodyBox.inputValue()}\n\n${offlineText}`);
 
   await page.getByRole('button', { name: '保存草稿' }).click();
-  await expect(page.getByText(/离线草稿已保存到本地|离线编辑已写入本地镜像/)).toBeVisible();
-  await expect(page.getByText('local_pending')).toBeVisible();
+  await expect(page.getByText(/离线中：修改已保存在本机，联网后自动同步/)).toBeVisible();
+  await expect(page.getByTestId('sync-badge').filter({ hasText: '离线' })).toBeVisible();
 
   await context.setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
-  await expect(page.getByText(/离线草稿已同步，版本/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/已同步到云端/)).toBeVisible({ timeout: 10_000 });
 
   const draftResponse = await page.request.get(`/api/drafts/${draftId}`);
   const draftPayload = await draftResponse.json();

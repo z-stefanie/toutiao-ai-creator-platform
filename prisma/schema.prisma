@@ -74,6 +74,7 @@ model Draft {
   updatedAt    DateTime @updatedAt
 
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  snapshots DraftSnapshot[]
 }
 
 model Content {
@@ -147,4 +148,34 @@ model AiCallLog {
   schemaValid     Boolean
   errorMessage    String?
   createdAt       DateTime @default(now())
+}
+
+model DraftMutation {
+  ownerId String
+  draftId String
+  operationId String
+  requestHash String
+  ackJson String
+  createdAt DateTime @default(now())
+
+  @@id([ownerId, draftId, operationId])
+  @@index([createdAt])
+}
+
+model DraftSnapshot {
+  id String @id
+  draftId String
+  ownerId String
+  version Int
+  reason String
+  title String
+  summary String
+  body String
+  tagsJson String
+  assetIdsJson String
+  createdAt DateTime @default(now())
+
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId, createdAt])
 }
